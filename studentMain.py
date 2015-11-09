@@ -67,22 +67,44 @@ import random
 # next position. The OTHER variable that your function returns will be 
 # passed back to your function the next time it is called. You can use
 # this to keep track of important information over time.
+prior_heading=0
 def estimate_next_pos(measurement, OTHER = None):
-    """Estimate the next (x, y) position of the wandering Traxbot
-    based on noisy (x, y) measurements."""
+    x2, y2 = measurement
+    print "passed measure", measurement
+    print "passed other", OTHER
 
-    if not OTHER: # this is the first measurement
+    if not OTHER:  # this is the first measurement
         OTHER = measurement
-        dist_step = 1
-        turning = 0
+        dist_step = 0.0
+        heading = 0.0
+        # print "init _turn", turning
 
     else:
-        dist_step= distance_between(OTHER, measurement)
-        prod=sum([x * y for x, y in zip(OTHER, measurement)])
-        turning =  acos(prod)
-    xy_estimate =[ dist_step * cos(turning), dist_step * sin(turning)]
-    # You must return xy_estimate (x, y), and OTHER (even if it is None) 
-    # in this order for grading purposes.
+        x1, y1 = OTHER
+        dist_step = round(distance_between(measurement, OTHER),2)
+        print "d", dist_step
+        delta_x = x2 - x1
+        delta_y = y2 - y1
+        heading = round(atan2(delta_y, delta_x), 1)
+
+        while heading < 0.0:
+            heading += pi * 2
+        heading= ((heading + pi) % (pi * 2)) - pi
+
+
+        radius = round(sqrt((x2 ** 2) + (y2 ** 2)),2)
+        turn = round(atan2(delta_y, radius - delta_x),2)
+        heading += turn
+
+        print "guess heading", heading
+        # print "guess turn", turn
+
+    # print "guess heading", heading
+
+    xy_estimate = [x2 + (dist_step * round(cos(heading),2)), y2 + ( dist_step * round(sin(heading),2))]
+
+    OTHER = measurement
+
     return xy_estimate, OTHER 
 
 # A helper function you may find useful.
@@ -102,21 +124,55 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER = None):
     # if you haven't localized the target bot, make a guess about the next
     # position, then we move the bot and compare your guess to the true
     # next position. When you are close enough, we stop checking.
-    while not localized and ctr <= 10: 
+    #For Visualization
+    import turtle    #You need to run this locally to use the turtle module
+    window = turtle.Screen()
+    window.bgcolor('white')
+    size_multiplier= 25.0  #change Size of animation
+    broken_robot = turtle.Turtle()
+    broken_robot.shape('turtle')
+    broken_robot.color('green')
+    broken_robot.resizemode('user')
+    broken_robot.shapesize(0.1, 0.1, 0.1)
+    measured_broken_robot = turtle.Turtle()
+    measured_broken_robot.shape('circle')
+    measured_broken_robot.color('red')
+    measured_broken_robot.resizemode('user')
+    measured_broken_robot.shapesize(0.1, 0.1, 0.1)
+    prediction = turtle.Turtle()
+    prediction.shape('arrow')
+    prediction.color('blue')
+    prediction.resizemode('user')
+    prediction.shapesize(0.1, 0.1, 0.1)
+    prediction.penup()
+    broken_robot.penup()
+    measured_broken_robot.penup()
+    #End of Visualization
+    while not localized and ctr <= 100:
         ctr += 1
         measurement = target_bot.sense()
         position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
         target_bot.move_in_circle()
         true_position = (target_bot.x, target_bot.y)
         error = distance_between(position_guess, true_position)
+        print "robot turn ", target_bot.turning
         if error <= distance_tolerance:
             print "You got it right! It took you ", ctr, " steps to localize."
             localized = True
-        if ctr == 10:
+        if ctr == 100:
             print "Sorry, it took you too many steps to localize the target."
-    return localized
-
-# This is a demo for what a strategy could look like. This one isn't very good.
+        #More Visualization
+        measured_broken_robot.setheading(target_bot.heading*180/pi)
+        measured_broken_robot.goto(measurement[0]*size_multiplier, measurement[1]*size_multiplier-200)
+        measured_broken_robot.stamp()
+        broken_robot.setheading(target_bot.heading*180/pi)
+        broken_robot.goto(target_bot.x*size_multiplier, target_bot.y*size_multiplier-200)
+        broken_robot.stamp()
+        prediction.setheading(target_bot.heading*180/pi)
+        prediction.goto(position_guess[0]*size_multiplier, position_guess[1]*size_multiplier-200)
+        prediction.stamp()
+        #End of Visualization
+    return localized# This is a demo for what a strategy could look like. This one isn't very good.
 def naive_next_pos(measurement, OTHER = None):
     """This strategy records the first reported position of the target and
     assumes that eventually the target bot will eventually return to that 
@@ -128,7 +184,9 @@ def naive_next_pos(measurement, OTHER = None):
 
 # This is how we create a target bot. Check the robot.py file to understand
 # How the robot class behaves.
-test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
+test_target = robot(2.1, 4.3, 1.5, 2*pi / 8, 1.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
-# demo_grading(naive_next_pos, test_target)
+print "heading:",  (2*pi /8)
+
+demo_grading(estimate_next_pos, test_target)

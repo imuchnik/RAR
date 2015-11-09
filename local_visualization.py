@@ -70,20 +70,18 @@ prior_heading = 0
 
 
 def estimate_next_pos(measurement, OTHER=None):
-    print '*********************'
-    """Estimate the next (x, y) position of the wandering Traxbot
-    based on noisy (x, y) measurements."""
     x2, y2 = measurement
+    print "############################"
     print "passed measure", measurement
     print "passed other", OTHER
+    turn =0
+    theta =0
     if not OTHER:  # this is the first measurement
-
         OTHER = measurement
-        dist_step = 1.5
-        turning = 2 * pi / 34.0
-        heading = 0.5
+        dist_step = 1.0
+        heading = 0.0
         # print "init _turn", turning
-
+        turn = 0
 
 
     else:
@@ -93,20 +91,60 @@ def estimate_next_pos(measurement, OTHER=None):
         delta_x = x2 - x1
         delta_y = y2 - y1
         heading = atan2(delta_y, delta_x)
-        radius = sqrt((x2 ** 2) + (y2 ** 2))
-        heading += atan2(delta_y, radius - delta_x)
 
+        other_magnitude =sqrt(x1**2+y1**2)
+        measurement_magnitude =sqrt(x2**2+y2**2)
+
+        dot_product = (x1*x2)+y1*y2
+        if other_magnitude!=0.0:
+            if theta==0:
+                theta = acos(dot_product/(other_magnitude * measurement_magnitude))
+
+                turn=2*theta
+                #determine turn direction
+                if (x1>0):
+                    if (y1<y2):
+                        turn*=-1
+                else:
+                    if(y1>y2):
+                        turn*=-1
+
+
+
+        else:
+            radius = round(sqrt((x2 ** 2) + (y2 ** 2)),2)
+            turn = round(atan2(delta_y, radius - delta_x),2)
+
+
+
+        heading += turn
+
+        while heading < 0.0:
+                heading += pi * 2
+        heading= ((heading + pi) % (pi * 2)) - pi
+
+
+        #figure out noise
+
+        disposable_robot=robot(x1, y1, heading, turn, dist_step)
+        disposable_robot.set_noise(0., 0., 0.)
+        disposable_robot.move_in_circle()
+
+        noise = distance_between(measurement, (disposable_robot.x, disposable_robot.y))
+        print "disp robot", disposable_robot.x, disposable_robot.y
+        print "guessed noise",noise
+
+
+
+        print "theta", 2*theta
         print "guess heading", heading
+        # print "guess turn", turn
 
     # print "guess heading", heading
 
-    xy_estimate = [x2 + (dist_step * cos(heading)), y2 + ( dist_step * sin(heading))]
-    print "WTF?", xy_estimate
+    xy_estimate = [x2 + (dist_step * cos(heading)), y2 + (dist_step * sin(heading))]
+
     OTHER = measurement
-
-    # You must return xy_estimate (x, y), and OTHER (even if it is None)
-    # in this order for grading purposes.
-
     return xy_estimate, OTHER  # A helper function you may find useful.
 
 
@@ -160,12 +198,8 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER=None):
         print "new measure", measurement
         print "other", OTHER
 
-        position_guess, OTHER = estimate_next_pos(measurement, OTHER)
+        position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
 
-        print "guessed position", position_guess
-        print "new other", OTHER
-        print  "position before move", (target_bot.x, target_bot.y)
-        print "robot heading before move", target_bot.heading
         target_bot.move_in_circle()
         true_position = (target_bot.x, target_bot.y)
 
@@ -212,7 +246,7 @@ def naive_next_pos(measurement, OTHER=None):
 
 # This is how we create a target bot. Check the robot.py file to understand
 # How the robot class behaves.
-test_target = robot(0., 0., 0.5, 2 * pi / 34.0, 1.5)
+test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
-demo_grading(naive_next_pos, test_target)
+demo_grading(estimate_next_pos, test_target)
