@@ -71,6 +71,16 @@ def estimate_next_pos(measurement, OTHER = None):
     """Estimate the next (x, y) position of the wandering Traxbot
     based on noisy (x, y) measurements."""
 
+    if not OTHER: # this is the first measurement
+        OTHER = measurement
+        dist_step = 1
+        turning = 0
+
+    else:
+        dist_step= distance_between(OTHER, measurement)
+        prod=sum([x * y for x, y in zip(OTHER, measurement)])
+        turning =  acos(prod)
+    xy_estimate =[ dist_step * cos(turning), dist_step * sin(turning)]
     # You must return xy_estimate (x, y), and OTHER (even if it is None) 
     # in this order for grading purposes.
     return xy_estimate, OTHER 
