@@ -74,10 +74,12 @@ def estimate_next_pos(measurement, OTHER=None):
     print "############################"
     print "passed measure", measurement
     print "passed other", OTHER
-    turn =0
-    theta =0
+    turn = 0
+    theta = 0
     if not OTHER:  # this is the first measurement
-        OTHER = measurement
+        OTHER = {'measurements': []}
+        # OTHER['measurements'].append(measurement)
+        OTHER['turn'] =0
         dist_step = 1.0
         heading = 0.0
         # print "init _turn", turning
@@ -85,66 +87,31 @@ def estimate_next_pos(measurement, OTHER=None):
 
 
     else:
-        x1, y1 = OTHER
-        dist_step = distance_between(measurement, OTHER)
-        print "d", dist_step
+        x1, y1 = OTHER['measurements'][len(OTHER['measurements']) - 1]
+        print "x1,y1", x1, y1
+        dist_step = distance_between(measurement, (x1, y1))
+
         delta_x = x2 - x1
         delta_y = y2 - y1
         heading = atan2(delta_y, delta_x)
 
-        other_magnitude =sqrt(x1**2+y1**2)
-        measurement_magnitude =sqrt(x2**2+y2**2)
+        if len(OTHER['measurements']) > 2:
+            x3, y3 = OTHER['measurements'][len(OTHER['measurements']) - 2]
+            print "x3,y3", x3, y3
+            dist_step = distance_between((x3, y3), (x1, y1))
+            prev_delta_x = x1 - x3
+            prev_delta_y = y1 - y3
+            prev_heading = atan2(prev_delta_y, prev_delta_x)
+            OTHER['turn'] =  heading-prev_heading
 
-        dot_product = (x1*x2)+y1*y2
-        if other_magnitude!=0.0:
-            if theta==0:
-                theta = acos(dot_product/(other_magnitude * measurement_magnitude))
+        heading += OTHER['turn']
 
-                turn=2*theta
-                #determine turn direction
-                if (x1>0):
-                    if (y1<y2):
-                        turn*=-1
-                else:
-                    if(y1>y2):
-                        turn*=-1
-
-
-
-        else:
-            radius = round(sqrt((x2 ** 2) + (y2 ** 2)),2)
-            turn = round(atan2(delta_y, radius - delta_x),2)
-
-
-
-        heading += turn
-
-        while heading < 0.0:
-                heading += pi * 2
-        heading= ((heading + pi) % (pi * 2)) - pi
-
-
-        #figure out noise
-
-        disposable_robot=robot(x1, y1, heading, turn, dist_step)
-        disposable_robot.set_noise(0., 0., 0.)
-        disposable_robot.move_in_circle()
-
-        noise = distance_between(measurement, (disposable_robot.x, disposable_robot.y))
-        print "disp robot", disposable_robot.x, disposable_robot.y
-        print "guessed noise",noise
-
-
-
-        print "theta", 2*theta
+        print "turn", OTHER['turn']
         print "guess heading", heading
-        # print "guess turn", turn
-
-    # print "guess heading", heading
 
     xy_estimate = [x2 + (dist_step * cos(heading)), y2 + (dist_step * sin(heading))]
 
-    OTHER = measurement
+    OTHER['measurements'].append(measurement)
     return xy_estimate, OTHER  # A helper function you may find useful.
 
 
@@ -194,10 +161,6 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER=None):
         ctr += 1
 
         measurement = target_bot.sense()
-
-        print "new measure", measurement
-        print "other", OTHER
-
         position_guess, OTHER = estimate_next_pos_fcn(measurement, OTHER)
 
         target_bot.move_in_circle()
@@ -205,7 +168,6 @@ def demo_grading(estimate_next_pos_fcn, target_bot, OTHER=None):
 
         print "robot heading", target_bot.heading
         print "robot turning", target_bot.turning
-        print "prior heading ", target_bot.heading - target_bot.turning
         print "guess:", position_guess
         print "position post move:", true_position
         error = distance_between(position_guess, true_position)
@@ -246,7 +208,7 @@ def naive_next_pos(measurement, OTHER=None):
 
 # This is how we create a target bot. Check the robot.py file to understand
 # How the robot class behaves.
-test_target = robot(2.1, 4.3, 0.5, 2*pi / 34.0, 1.5)
+test_target = robot(2.1, 4.3, 0.5, 2 * pi / -20., 3.5)
 test_target.set_noise(0.0, 0.0, 0.0)
 
 demo_grading(estimate_next_pos, test_target)
